@@ -145,12 +145,12 @@
                         </div>
                         <div class="border-t border-gray-100 pt-3 mt-3">
                             <label class="block text-xs font-semibold text-gray-700 mb-1">Nama Kepala Sekolah</label>
-                            <input type="text" id="inputKepsekName" placeholder="Contoh: Dr. H. Ahmad, M.Pd"
+                            <input type="text" id="inputKepsekName" placeholder="Contoh: Dra. Suharyanti"
                                 class="w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 block p-2.5 outline-none transition-colors">
                         </div>
                         <div>
                             <label class="block text-xs font-semibold text-gray-700 mb-1">NIP Kepala Sekolah</label>
-                            <input type="text" id="inputKepsekNip" placeholder="Contoh: NIP. 19800101 200501 1 001"
+                            <input type="text" id="inputKepsekNip" placeholder="Contoh: NIP. 19700224 201411 2 001"
                                 class="w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 block p-2.5 outline-none transition-colors">
                         </div>
                     </div>
@@ -166,6 +166,9 @@
                     <div class="flex gap-2 items-center flex-wrap">
                         <button id="autoFillBtn" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-3 rounded-lg transition-colors flex items-center gap-2 shadow-sm whitespace-nowrap" title="Isi jadwal berurutan sesuai daftar pembina">
                             <i class="fa-solid fa-wand-magic-sparkles"></i> Isi Otomatis
+                        </button>
+                        <button id="clearScheduleBtn" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-sm font-medium py-2 px-3 rounded-lg transition-colors flex items-center gap-2 shadow-sm whitespace-nowrap" title="Kosongkan jadwal tanpa menghapus nama pembina">
+                            <i class="fa-solid fa-eraser"></i> Kosongkan Jadwal
                         </button>
                         <select id="periodeSelect" class="bg-white border border-gray-300 text-gray-800 text-sm font-medium rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block px-3 py-2 cursor-pointer shadow-sm outline-none">
                             <option value="1">1 Semester (Smt Ini)</option>
@@ -219,7 +222,7 @@
     <!-- Confirm Modal -->
     <div id="confirmModal" class="fixed inset-0 bg-gray-900/50 hidden items-center justify-center z-50 opacity-0 transition-opacity duration-300 no-print">
         <div class="bg-white rounded-xl shadow-xl p-6 max-w-sm w-full mx-4 transform scale-95 transition-transform duration-300">
-            <h3 class="text-lg font-bold text-gray-900 mb-2">Konfirmasi Hapus</h3>
+            <h3 class="text-lg font-bold text-gray-900 mb-2">Konfirmasi Tindakan</h3>
             <p id="confirmModalText" class="text-sm text-gray-600 mb-6">Apakah Anda yakin?</p>
             <div class="flex justify-end gap-3">
                 <button id="confirmCancelBtn" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">Batal</button>
@@ -245,6 +248,7 @@
             const printBtn = document.getElementById('printBtn');
             const printNoUrutBtn = document.getElementById('printNoUrutBtn');
             const clearPembinaBtn = document.getElementById('clearPembinaBtn');
+            const clearScheduleBtn = document.getElementById('clearScheduleBtn');
             const toast = document.getElementById('toast');
             const toastMsg = document.getElementById('toastMsg');
             
@@ -611,6 +615,28 @@
 
                     pembinas.forEach(p => updateBadgeCount(p.id));
                     showToast(`Berhasil mengisi ${filledCount} jadwal secara otomatis!`);
+                });
+            });
+
+            // Logika Kosongkan Jadwal secara Mandiri
+            clearScheduleBtn.addEventListener('click', () => {
+                const assignedTasks = scheduleContainer.querySelectorAll('.assigned-task');
+                if (assignedTasks.length === 0) {
+                    showToast('Jadwal sudah kosong.');
+                    return;
+                }
+
+                showConfirm('Apakah Anda yakin ingin <b>mengosongkan seluruh jadwal</b> yang telah diisi?', () => {
+                    assignedTasks.forEach(task => task.remove());
+                    scheduleContainer.querySelectorAll('.empty-placeholder').forEach(placeholder => {
+                        placeholder.style.display = 'block';
+                    });
+                    
+                    // Memperbarui semua badge hitungan pembina di sidebar kiri
+                    const pembinas = document.querySelectorAll('#pembinaList li');
+                    pembinas.forEach(p => updateBadgeCount(p.id));
+
+                    showToast('Seluruh jadwal berhasil dikosongkan.');
                 });
             });
 
@@ -1227,18 +1253,19 @@
                 "Dra. Suharyanti",
                 "Citra Mayasari Tanjung, S.Pd",
                 "Dewi Indah Pratiwi, S.Pd",
-                "Dian Eka Sari, S.Pd.I",
-                "Fakhruddin Nst, S.Pd.I",
+                "Dian Eka Sari, S.Pd",
+                "Fakhruddin Nst, S.Pd",
                 "Elverida Sipayung, S.Pd",
                 "Endang Rahmat Purnama, S.Pd",
                 "Fitriyani, S.Pd",
                 "Hayati, S.Pd",
-                "Marista Manalu, S.Pd.K",
+                "Marista Manalu, S.Pd",
                 "Misnar Joko Irawan, S.Pd",
                 "Morista Sinaga, S.Pd",
                 "Raudhah Siregar, S.Pd",
                 "Ronni Sihombing, S.Pd",
-                "Sella Oktaviana, S.Pd"                
+                "Sella Oktaviana, S.Pd"
+                
             ];
             dummyNames.forEach(name => createPembinaItem(name));
 
