@@ -1,0 +1,1250 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jadwal Pembina Upacara</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        
+        .drag-over { background-color: #e0f2fe !important; border: 2px dashed #3b82f6 !important; }
+        
+        .pembina-source-item { cursor: grab; }
+        .pembina-source-item:active { cursor: grabbing; }
+        
+        /* Animasi Transisi Accordion */
+        details > summary { list-style: none; }
+        details > summary::-webkit-details-marker { display: none; }
+        details[open] summary ~ * { animation: slideDown 0.3s ease-in-out; }
+        @keyframes slideDown {
+            0% { opacity: 0; transform: translateY(-10px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Pengaturan Cetak (Print) */
+        @media print {
+            html, body { 
+                background-color: white !important; 
+                height: auto !important; 
+                min-height: auto !important;
+                display: block !important; 
+                overflow: visible !important;
+            }
+            .no-print { display: none !important; }
+            .print-only { display: block !important; }
+            #printView {
+                display: block !important;
+                margin-top: 0 !important;
+                padding-top: 0 !important;
+            }
+            table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+            th, td { border: 1px solid black; padding: 10px; text-align: left; }
+            th { background-color: #f3f4f6 !important; -webkit-print-color-adjust: exact; }
+        }
+    </style>
+</head>
+<body class="text-gray-800 h-screen flex flex-col font-sans">
+
+    <!-- Header Aplikasi -->
+    <header class="bg-indigo-700 text-white p-4 shadow-md no-print shrink-0">
+        <div class="container mx-auto flex items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <i class="fa-solid fa-flag text-2xl animate-bounce"></i>
+                <div>
+                    <h1 class="text-xl font-bold tracking-wide">SIMPEN-UP</h1>
+                    <p class="text-xs text-indigo-200">Sistem Penjadwalan Pembina Upacara</p>
+                </div>
+            </div>
+            
+            <div class="flex gap-2 items-center">
+                <input type="file" id="importFile" class="hidden" accept=".json">
+                <button id="importBtn" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium py-1.5 px-3 rounded transition-colors flex items-center gap-1.5 border border-indigo-500 shadow-sm" title="Impor data dari file JSON">
+                    <i class="fa-solid fa-file-import"></i> <span class="hidden sm:inline">Impor</span>
+                </button>
+                <button id="exportBtn" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium py-1.5 px-3 rounded transition-colors flex items-center gap-1.5 border border-indigo-500 shadow-sm" title="Ekspor data ke file JSON">
+                    <i class="fa-solid fa-file-export"></i> <span class="hidden sm:inline">Ekspor</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 overflow-hidden p-4 container mx-auto">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
+            
+            <!-- Sidebar Kiri: Gabungan Daftar Pembina & Pengaturan Cetak dalam 1 Scroll -->
+            <div class="flex flex-col gap-4 h-full lg:col-span-1 overflow-y-auto no-print pr-2 pb-2">
+                
+                <!-- Card 1: Daftar Pembina -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col flex-shrink-0">
+                    <div class="p-5 border-b border-gray-100 bg-gray-50 flex-shrink-0 rounded-t-xl">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-lg font-bold text-gray-800"><i class="fa-solid fa-users-viewfinder mr-2 text-indigo-600"></i>Daftar Pembina</h2>
+                            <button id="clearPembinaBtn" class="text-xs font-semibold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-2.5 py-1.5 rounded transition-all" title="Hapus semua nama">Kosongkan</button>
+                        </div>
+                        <form id="addPembinaForm" class="flex gap-2">
+                            <input type="text" id="pembinaName" placeholder="Ketik nama pembina..." required
+                                class="flex-1 bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5 outline-none transition-all shadow-sm">
+                            <button type="submit" class="text-white bg-indigo-600 hover:bg-indigo-700 focus:ring-4 focus:outline-none focus:ring-indigo-300 font-medium rounded-lg text-sm px-4 py-2.5 text-center shadow-sm transition-colors">
+                                <i class="fa-solid fa-plus"></i>
+                            </button>
+                        </form>
+                    </div>
+                    
+                    <!-- Daftar Nama Pembina dengan Scroll Mandiri (Max 6 Nama) -->
+                    <div class="p-4 flex flex-col">
+                        <div class="bg-indigo-50 text-indigo-800 text-xs p-3 rounded-lg mb-3 flex items-start gap-2">
+                            <i class="fa-solid fa-circle-info mt-0.5 shrink-0"></i>
+                            <p>Ubah angka urutan untuk memindahkan posisi secara instan, atau seret pembina untuk mengurutkan daftar!</p>
+                        </div>
+                        <div class="overflow-y-auto max-h-[350px] pr-1">
+                            <ul id="pembinaList" class="space-y-2">
+                                <!-- Item Pembina akan ditambahkan secara dinamis oleh JS -->
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 2: Pengaturan Cetak -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col flex-shrink-0">
+                    <div class="p-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between sticky top-0 z-10 rounded-t-xl shadow-sm">
+                        <h2 class="text-sm font-bold text-gray-800 flex items-center gap-2">
+                            <i class="fa-solid fa-print text-indigo-600"></i>Pengaturan Cetak
+                        </h2>
+                    </div>
+                    <div class="space-y-3 p-4">
+                        <!-- Pilihan Ukuran Kertas -->
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-700 mb-1">Ukuran Kertas Cetak</label>
+                            <select id="inputPaperSize" class="w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 block p-2.5 outline-none transition-colors cursor-pointer">
+                                <option value="A4">A4 (210 x 297 mm)</option>
+                                <option value="F4">F4 / Folio (215 x 330 mm)</option>
+                            </select>
+                        </div>
+
+                        <!-- Opsi Tebalkan (Bold) -->
+                        <div class="flex items-center gap-2 py-1 border-b border-gray-100 pb-3">
+                            <input type="checkbox" id="inputBoldPrint" class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 cursor-pointer">
+                            <label for="inputBoldPrint" class="text-xs font-semibold text-gray-700 cursor-pointer select-none">Tebalkan Nama & Nomor saat Cetak</label>
+                        </div>
+
+                        <!-- Kustomisasi Judul -->
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-700 mb-1">Judul Dokumen</label>
+                            <input type="text" id="inputCustomTitle" placeholder="Contoh: Jadwal Pembina Upacara..."
+                                class="w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 block p-2.5 outline-none transition-colors">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-700 mb-1">Tahun Ajaran / Sub-judul</label>
+                            <input type="text" id="inputCustomSubtitle" placeholder="Contoh: Tahun Ajaran 2026/2027"
+                                class="w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 block p-2.5 outline-none transition-colors">
+                        </div>
+                        <div class="border-t border-gray-100 pt-3 mt-3">
+                            <label class="block text-xs font-semibold text-gray-700 mb-1">Nama Kepala Sekolah</label>
+                            <input type="text" id="inputKepsekName" placeholder="Contoh: Dr. H. Ahmad, M.Pd"
+                                class="w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 block p-2.5 outline-none transition-colors">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-700 mb-1">NIP Kepala Sekolah</label>
+                            <input type="text" id="inputKepsekNip" placeholder="Contoh: NIP. 19800101 200501 1 001"
+                                class="w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 block p-2.5 outline-none transition-colors">
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Kolom Kanan: Jadwal Upacara -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col h-full overflow-hidden no-print lg:col-span-2">
+                <div class="p-5 border-b border-gray-100 bg-gray-50 flex-shrink-0 flex justify-between items-center flex-wrap gap-3">
+                    <h2 class="text-lg font-bold text-gray-800"><i class="fa-regular fa-calendar-days mr-2 text-indigo-600"></i>Jadwal Upacara</h2>
+                    
+                    <div class="flex gap-2 items-center flex-wrap">
+                        <button id="autoFillBtn" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-3 rounded-lg transition-colors flex items-center gap-2 shadow-sm whitespace-nowrap" title="Isi jadwal berurutan sesuai daftar pembina">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> Isi Otomatis
+                        </button>
+                        <select id="periodeSelect" class="bg-white border border-gray-300 text-gray-800 text-sm font-medium rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block px-3 py-2 cursor-pointer shadow-sm outline-none">
+                            <option value="1">1 Semester (Smt Ini)</option>
+                            <option value="2">2 Semester (1 Tahun)</option>
+                        </select>
+                        <button id="printNoUrutBtn" class="bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium py-2 px-4 rounded-lg transition-colors flex items-center gap-2 shadow-sm whitespace-nowrap" title="Cetak berdasarkan No Urut Daftar Pembina tanpa Tanggal">
+                            <i class="fa-solid fa-list-ol"></i> Cetak No Urut
+                        </button>
+                        <button id="printBtn" class="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium py-2 px-4 rounded-lg transition-colors flex items-center gap-2 shadow-sm">
+                            <i class="fa-solid fa-print"></i> Cetak Jadwal
+                        </button>
+                    </div>
+                </div>
+
+                <div class="p-5 flex-1 overflow-y-auto bg-gray-50/50" id="scheduleWrapper">
+                    <div id="scheduleContainer" class="space-y-4">
+                        <!-- Accordion Bulan dimasukkan di sini oleh JS -->
+                    </div>
+                </div>
+            </div>
+            
+        </div>
+    </main>
+
+    <!-- Halaman Tampilan Cetak (Hanya Terlihat Saat Ctrl+P / Cetak) -->
+    <div class="hidden print-only p-8" id="printView">
+        <div class="text-center mb-8">
+            <h1 class="text-2xl font-bold uppercase" id="printTitle">Jadwal Pembina Upacara Bendera</h1>
+            <h2 class="text-lg mt-1 font-semibold" id="printSubtitle">Tahun Ajaran 2024/2025</h2>
+        </div>
+        <table class="w-full text-sm text-left">
+            <thead>
+                <tr id="printTableHeaderRow" class="border-b-2 border-black">
+                    <th class="w-1/3 py-2 font-bold">Tanggal (Senin)</th>
+                    <th class="w-2/3 py-2 font-bold">Petugas Pembina</th>
+                </tr>
+            </thead>
+            <tbody id="printTableBody">
+                <!-- Data print akan disalin ke sini -->
+            </tbody>
+        </table>
+        <div class="mt-16 flex justify-end">
+            <div class="text-center">
+                <p class="mb-20">Mengetahui,<br>Kepala Sekolah</p>
+                <p class="font-bold underline" id="printKepsekName">_________________________</p>
+                <p id="printKepsekNip">NIP. ........................</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm Modal -->
+    <div id="confirmModal" class="fixed inset-0 bg-gray-900/50 hidden items-center justify-center z-50 opacity-0 transition-opacity duration-300 no-print">
+        <div class="bg-white rounded-xl shadow-xl p-6 max-w-sm w-full mx-4 transform scale-95 transition-transform duration-300">
+            <h3 class="text-lg font-bold text-gray-900 mb-2">Konfirmasi Hapus</h3>
+            <p id="confirmModalText" class="text-sm text-gray-600 mb-6">Apakah Anda yakin?</p>
+            <div class="flex justify-end gap-3">
+                <button id="confirmCancelBtn" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">Batal</button>
+                <button id="confirmOkBtn" class="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors shadow-sm">Ya, Lanjutkan</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-5 right-5 bg-gray-800 text-white px-4 py-3 rounded-lg shadow-lg transform translate-y-20 opacity-0 transition-all duration-300 z-50 pointer-events-none flex items-center gap-3 no-print">
+        <i class="fa-solid fa-circle-check text-green-400"></i>
+        <span id="toastMsg">Tugas ditambahkan!</span>
+    </div>
+
+    <!-- Script Utama -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const addPembinaForm = document.getElementById('addPembinaForm');
+            const pembinaNameInput = document.getElementById('pembinaName');
+            const pembinaList = document.getElementById('pembinaList');
+            const scheduleContainer = document.getElementById('scheduleContainer');
+            const periodeSelect = document.getElementById('periodeSelect');
+            const printBtn = document.getElementById('printBtn');
+            const printNoUrutBtn = document.getElementById('printNoUrutBtn');
+            const clearPembinaBtn = document.getElementById('clearPembinaBtn');
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMsg');
+            
+            // Konfigurasi Tambahan: Ukuran Kertas & Tebal (Bold)
+            const inputPaperSize = document.getElementById('inputPaperSize');
+            const inputBoldPrint = document.getElementById('inputBoldPrint');
+            
+            const inputCustomTitle = document.getElementById('inputCustomTitle');
+            const inputCustomSubtitle = document.getElementById('inputCustomSubtitle');
+            const inputKepsekName = document.getElementById('inputKepsekName');
+            const inputKepsekNip = document.getElementById('inputKepsekNip');
+            
+            const printTitle = document.getElementById('printTitle');
+            const printSubtitle = document.getElementById('printSubtitle');
+            const printTableHeaderRow = document.getElementById('printTableHeaderRow');
+            const printKepsekName = document.getElementById('printKepsekName');
+            const printKepsekNip = document.getElementById('printKepsekNip');
+            
+            const confirmModal = document.getElementById('confirmModal');
+            const confirmModalText = document.getElementById('confirmModalText');
+            const confirmOkBtn = document.getElementById('confirmOkBtn');
+            const confirmCancelBtn = document.getElementById('confirmCancelBtn');
+            let confirmAction = null;
+            
+            const importBtn = document.getElementById('importBtn');
+            const exportBtn = document.getElementById('exportBtn');
+            const importFile = document.getElementById('importFile');
+            const autoFillBtn = document.getElementById('autoFillBtn');
+
+            let pembinaIdCounter = 0;
+            let monthHoverTimer = null;
+
+            // Modal Functions
+            const showConfirm = (message, action) => {
+                confirmModalText.innerHTML = message;
+                confirmAction = action;
+                confirmModal.classList.remove('hidden');
+                void confirmModal.offsetWidth; 
+                confirmModal.classList.remove('opacity-0');
+                confirmModal.classList.add('flex');
+                confirmModal.querySelector('div').classList.remove('scale-95');
+            };
+
+            const hideConfirm = () => {
+                confirmModal.classList.add('opacity-0');
+                confirmModal.querySelector('div').classList.add('scale-95');
+                setTimeout(() => {
+                    confirmModal.classList.add('hidden');
+                    confirmModal.classList.remove('flex');
+                }, 300);
+            };
+
+            confirmCancelBtn.addEventListener('click', hideConfirm);
+            confirmOkBtn.addEventListener('click', () => {
+                if (confirmAction) confirmAction();
+                hideConfirm();
+            });
+
+            const showToast = (msg) => {
+                toastMsg.textContent = msg;
+                toast.classList.remove('translate-y-20', 'opacity-0');
+                setTimeout(() => toast.classList.add('translate-y-20', 'opacity-0'), 2500);
+            };
+
+            const formatDateID = (dateObj) => {
+                const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+                return dateObj.toLocaleDateString('id-ID', options);
+            };
+
+            // Memperbarui badge hitungan tugas pembina
+            window.updateBadgeCount = (pembinaId) => {
+                const tasks = scheduleContainer.querySelectorAll(`.assigned-task[data-pembina-id="${pembinaId}"]`);
+                const count = tasks.length;
+                
+                const badge = document.getElementById(`badge-${pembinaId}`);
+                if (badge) {
+                    badge.textContent = `${count}x`;
+                    if (count > 0) {
+                        badge.classList.remove('bg-gray-100', 'text-gray-500');
+                        badge.classList.add('bg-emerald-100', 'text-emerald-700', 'border', 'border-emerald-200');
+                    } else {
+                        badge.classList.remove('bg-emerald-100', 'text-emerald-700', 'border', 'border-emerald-200');
+                        badge.classList.add('bg-gray-100', 'text-gray-500');
+                    }
+                }
+            };
+
+            // Memperbarui nomor urut di sidebar dan menyimpan data urutan lama untuk tracking
+            const updatePembinaNumbers = () => {
+                const items = pembinaList.querySelectorAll('.pembina-source-item');
+                items.forEach((item, index) => {
+                    const numberInput = item.querySelector('.pembina-number-input');
+                    if (numberInput) {
+                        numberInput.value = index + 1;
+                        numberInput.dataset.oldValue = index + 1; // Simpan nilai lama
+                    }
+                });
+            };
+
+            // Membuat Item Pembina di Sidebar (Kiri)
+            const createPembinaItem = (name, forceId = null) => {
+                let id;
+                if (forceId) {
+                    id = forceId;
+                    const num = parseInt(forceId.split('-')[1]);
+                    if (num > pembinaIdCounter) pembinaIdCounter = num;
+                } else {
+                    pembinaIdCounter++;
+                    id = `pembina-${pembinaIdCounter}`;
+                }
+                
+                const li = document.createElement('li');
+                li.id = id;
+                li.draggable = true;
+                li.className = 'pembina-source-item flex justify-between items-center bg-white border border-gray-200 p-2.5 rounded-lg shadow-sm hover:shadow-md hover:border-indigo-300 transition-all select-none group relative';
+                
+                // Menambahkan input nomor urut kustom menggantikan span statis
+                li.innerHTML = `
+                    <div class="flex items-center gap-2 w-full min-w-0">
+                        <i class="fa-solid fa-grip-vertical text-gray-300 cursor-grab active:cursor-grabbing hover:text-indigo-500 shrink-0" title="Geser untuk mengurutkan"></i>
+                        <input type="number" min="1" class="pembina-number-input w-11 text-center bg-gray-50 border border-gray-200 rounded text-xs font-bold text-indigo-600 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 outline-none p-1 shrink-0" title="Ubah nomor untuk memindahkan urutan secara langsung">
+                        <div class="bg-indigo-100 text-indigo-600 w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0">
+                            ${name.charAt(0).toUpperCase()}
+                        </div>
+                        <span class="font-medium text-sm text-gray-700 truncate flex-1" title="${name}">${name}</span>
+                    </div>
+                    <div class="flex items-center gap-1 shrink-0 ml-1">
+                        <span id="badge-${id}" class="badge text-xs font-bold px-2 py-1 rounded-full bg-gray-100 text-gray-500 transition-colors">0x</span>
+                        <button type="button" class="delete-btn text-gray-300 hover:text-red-500 hover:bg-red-50 p-1.5 rounded transition-colors opacity-0 group-hover:opacity-100" title="Hapus Pembina">
+                            <i class="fa-solid fa-trash text-xs"></i>
+                        </button>
+                    </div>
+                `;
+
+                // Logika hapus pembina
+                const deleteBtn = li.querySelector('.delete-btn');
+                deleteBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    showConfirm(`Hapus <b>${name}</b> dari daftar dan hapus semua jadwalnya?`, () => {
+                        li.remove();
+                        updatePembinaNumbers(); // Update nomor urut
+                        const tasks = scheduleContainer.querySelectorAll(`.assigned-task[data-pembina-id="${id}"]`);
+                        tasks.forEach(task => {
+                            const container = task.closest('.task-container');
+                            task.remove();
+                            if (container && container.querySelectorAll('.assigned-task').length === 0) {
+                                const placeholder = container.querySelector('.empty-placeholder');
+                                if (placeholder) placeholder.style.display = 'block';
+                            }
+                        });
+                        showToast(`${name} telah dihapus.`);
+                    });
+                });
+
+                // Event Listener untuk Input Nomor Urut Kustom
+                const numberInput = li.querySelector('.pembina-number-input');
+                
+                numberInput.addEventListener('change', (e) => {
+                    let newPos = parseInt(e.target.value);
+                    const items = Array.from(pembinaList.querySelectorAll('.pembina-source-item'));
+                    const total = items.length;
+
+                    // Validasi batas angka
+                    if (isNaN(newPos) || newPos < 1) {
+                        newPos = 1;
+                    } else if (newPos > total) {
+                        newPos = total;
+                    }
+
+                    const oldPos = parseInt(numberInput.dataset.oldValue) || (items.indexOf(li) + 1);
+                    if (newPos === oldPos) {
+                        e.target.value = oldPos;
+                        return;
+                    }
+
+                    // Pindahkan posisi elemen di DOM
+                    const targetIndex = newPos - 1;
+                    if (targetIndex === 0) {
+                        pembinaList.insertBefore(li, pembinaList.firstChild);
+                    } else if (targetIndex >= total - 1) {
+                        pembinaList.appendChild(li);
+                    } else {
+                        const targetItem = items[targetIndex];
+                        if (newPos > oldPos) {
+                            // Bergerak ke bawah: sisipkan setelah targetItem
+                            pembinaList.insertBefore(li, targetItem.nextSibling);
+                        } else {
+                            // Bergerak ke atas: sisipkan sebelum targetItem
+                            pembinaList.insertBefore(li, targetItem);
+                        }
+                    }
+
+                    updatePembinaNumbers(); // Perbarui seluruh nomor
+                    showToast(`Urutan ${name} dipindahkan ke posisi ${newPos}`);
+                });
+
+                // Cegah pemicu drag ketika memfokuskan atau mengetik di dalam input angka
+                numberInput.addEventListener('dragstart', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                });
+                numberInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        numberInput.blur(); // Memicu event change
+                    }
+                });
+
+                // Event Drag and Drop untuk ITEM PEMBINA
+                li.addEventListener('dragstart', (e) => {
+                    const data = { source: 'sidebar', id: id, name: name };
+                    e.dataTransfer.setData('application/json', JSON.stringify(data));
+                    li.classList.add('opacity-50', 'bg-gray-50', 'is-dragging'); 
+                    e.dataTransfer.effectAllowed = 'copyMove';
+                });
+
+                li.addEventListener('dragend', () => {
+                    li.classList.remove('opacity-50', 'bg-gray-50', 'is-dragging');
+                    document.querySelectorAll('.pembina-drop-indicator').forEach(el => el.remove());
+                });
+
+                // Menangani efek visual saat melayang di atas item lain di daftar (untuk Sorting)
+                li.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    
+                    const draggingItem = document.querySelector('.is-dragging');
+                    if (!draggingItem || draggingItem.parentNode !== pembinaList) return;
+                    
+                    if (draggingItem !== li) {
+                        const bounding = li.getBoundingClientRect();
+                        const offset = bounding.y + (bounding.height / 2);
+                        
+                        document.querySelectorAll('.pembina-drop-indicator').forEach(el => el.remove());
+                        
+                        const indicator = document.createElement('div');
+                        indicator.className = 'pembina-drop-indicator h-1 bg-indigo-500 rounded-full w-full absolute left-0 right-0 z-10';
+                        
+                        if (e.clientY - offset > 0) {
+                            indicator.style.bottom = '-4px';
+                            li.appendChild(indicator);
+                            li.classList.add('drop-after');
+                            li.classList.remove('drop-before');
+                        } else {
+                            indicator.style.top = '-4px';
+                            li.appendChild(indicator);
+                            li.classList.add('drop-before');
+                            li.classList.remove('drop-after');
+                        }
+                    }
+                });
+
+                li.addEventListener('dragleave', () => {
+                     document.querySelectorAll('.pembina-drop-indicator').forEach(el => el.remove());
+                     li.classList.remove('drop-before', 'drop-after');
+                });
+
+                // Menangani Drop untuk Sorting di dalam Daftar Pembina
+                li.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    document.querySelectorAll('.pembina-drop-indicator').forEach(el => el.remove());
+                    li.classList.remove('drop-before', 'drop-after');
+
+                    try {
+                        const data = JSON.parse(e.dataTransfer.getData('application/json'));
+                        if (data.source === 'sidebar') {
+                            const draggingItem = document.getElementById(data.id);
+                            
+                            if (!draggingItem || draggingItem === li) return;
+                            
+                            const bounding = li.getBoundingClientRect();
+                            const offset = bounding.y + (bounding.height / 2);
+                            
+                            if (e.clientY - offset > 0) {
+                                li.parentNode.insertBefore(draggingItem, li.nextSibling);
+                            } else {
+                                li.parentNode.insertBefore(draggingItem, li);
+                            }
+                            
+                            updatePembinaNumbers(); // Update nomor setelah disortir
+                            
+                            draggingItem.classList.add('ring-2', 'ring-indigo-400');
+                            setTimeout(() => draggingItem.classList.remove('ring-2', 'ring-indigo-400'), 500);
+                        }
+                    } catch (err) {
+                        // Abaikan error JSON
+                    }
+                });
+
+                pembinaList.appendChild(li);
+                updatePembinaNumbers(); // Update nomor setelah ditambahkan
+            };
+
+            addPembinaForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const name = pembinaNameInput.value.trim();
+                if (name) {
+                    createPembinaItem(name);
+                    pembinaNameInput.value = '';
+                    showToast('Pembina berhasil ditambahkan');
+                }
+            });
+
+            clearPembinaBtn.addEventListener('click', () => {
+                if (pembinaList.children.length === 0) {
+                    showToast('Daftar sudah kosong.');
+                    return;
+                }
+                showConfirm('Hapus <b>Semua Pembina</b> beserta seluruh jadwal tugasnya?', () => {
+                    scheduleContainer.querySelectorAll('.assigned-task').forEach(task => {
+                        const container = task.closest('.task-container');
+                        task.remove();
+                        if (container && container.querySelectorAll('.assigned-task').length === 0) {
+                            const placeholder = container.querySelector('.empty-placeholder');
+                            if (placeholder) placeholder.style.display = 'block';
+                        }
+                    });
+                    
+                    pembinaList.innerHTML = '';
+                    pembinaIdCounter = 0;
+                    showToast('Semua pembina dan jadwal telah dibersihkan.');
+                });
+            });
+
+            // Logika Isi Otomatis Berdasarkan Urutan Nomor Urut
+            autoFillBtn.addEventListener('click', () => {
+                const pembinas = Array.from(document.querySelectorAll('#pembinaList li'));
+                
+                if (pembinas.length === 0) {
+                    showToast('Daftar pembina kosong! Tambahkan pembina terlebih dahulu.');
+                    return;
+                }
+
+                showConfirm('Isi jadwal secara otomatis? Ini akan menimpa jadwal yang sudah ada.', () => {
+                    scheduleContainer.querySelectorAll('.assigned-task').forEach(t => t.remove());
+                    scheduleContainer.querySelectorAll('.empty-placeholder').forEach(p => p.style.display = 'block');
+                    
+                    const rows = Array.from(document.querySelectorAll('#scheduleContainer tr[data-date]'));
+                    
+                    if (rows.length === 0) {
+                        showToast('Tidak ada tanggal tersedia untuk diisi.');
+                        return;
+                    }
+
+                    let pembinaIndex = 0;
+                    let filledCount = 0;
+
+                    rows.forEach(row => {
+                        const taskContainer = row.querySelector('.task-container');
+                        const emptyPlaceholder = row.querySelector('.empty-placeholder');
+                        
+                        const currentPembina = pembinas[pembinaIndex % pembinas.length];
+                        const pembinaId = currentPembina.id;
+                        const pembinaName = currentPembina.querySelector('span.font-medium').textContent;
+                        
+                        if (emptyPlaceholder) emptyPlaceholder.style.display = 'none';
+                        const taskEl = createTaskElement(pembinaId, pembinaName);
+                        taskContainer.appendChild(taskEl);
+                        
+                        pembinaIndex++;
+                        filledCount++;
+                    });
+
+                    pembinas.forEach(p => updateBadgeCount(p.id));
+                    showToast(`Berhasil mengisi ${filledCount} jadwal secara otomatis!`);
+                });
+            });
+
+            // Membuat visual task di kolom jadwal
+            const createTaskElement = (pembinaId, pembinaName) => {
+                const taskId = 'task-' + Date.now() + '-' + Math.floor(Math.random() * 10000);
+                const taskEl = document.createElement('div');
+                taskEl.id = taskId;
+                taskEl.className = 'assigned-task flex items-center gap-2 bg-indigo-600 text-white px-3 py-1.5 rounded-md text-sm shadow-sm animate-fade-in cursor-grab active:cursor-grabbing hover:bg-indigo-700 transition-colors group';
+                taskEl.dataset.pembinaId = pembinaId;
+                taskEl.dataset.pembinaName = pembinaName;
+                taskEl.draggable = true;
+                
+                taskEl.innerHTML = `
+                    <i class="fa-solid fa-grip-vertical text-xs opacity-50 hidden group-hover:block" title="Tarik untuk memindah/menukar"></i>
+                    <i class="fa-solid fa-user text-xs opacity-80 group-hover:hidden"></i>
+                    <span class="font-medium pointer-events-none">${pembinaName}</span>
+                    <button type="button" class="ml-1 text-indigo-200 hover:text-white hover:bg-red-500 rounded p-0.5 transition-colors" title="Hapus Tugas">
+                        <i class="fa-solid fa-xmark text-xs"></i>
+                    </button>
+                `;
+
+                taskEl.querySelector('button').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const container = taskEl.closest('.task-container');
+                    taskEl.remove();
+                    if (container && container.querySelectorAll('.assigned-task').length === 0) {
+                        const placeholder = container.querySelector('.empty-placeholder');
+                        if (placeholder) placeholder.style.display = 'block';
+                    }
+                    updateBadgeCount(pembinaId);
+                });
+
+                taskEl.addEventListener('dragstart', (e) => {
+                    e.stopPropagation();
+                    const payload = { source: 'schedule', id: pembinaId, name: pembinaName, taskId: taskId };
+                    e.dataTransfer.setData('application/json', JSON.stringify(payload));
+                    e.dataTransfer.effectAllowed = 'move';
+                    setTimeout(() => taskEl.classList.add('opacity-50', 'ring-2', 'ring-indigo-300'), 0);
+                });
+
+                taskEl.addEventListener('dragend', () => taskEl.classList.remove('opacity-50', 'ring-2', 'ring-indigo-300'));
+
+                return taskEl;
+            };
+
+            // Mengambil atau Membuat Wadah Accordion untuk Bulan tertentu
+            const getOrCreateMonthGroup = (year, monthIndex) => {
+                const groupId = `month-group-${year}-${monthIndex}`;
+                let group = document.getElementById(groupId);
+                
+                if (!group) {
+                    const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+                    const monthName = monthNames[monthIndex];
+                    
+                    const today = new Date();
+                    const isCurrentMonth = (today.getFullYear() === year && today.getMonth() === monthIndex);
+                    
+                    group = document.createElement('details');
+                    group.id = groupId;
+                    group.className = 'bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden mb-4 group';
+                    if (isCurrentMonth) group.open = true;
+                    
+                    group.innerHTML = `
+                        <summary class="bg-gray-50 p-4 font-bold text-gray-800 cursor-pointer flex justify-between items-center hover:bg-gray-100 transition-colors select-none">
+                            <div class="flex items-center gap-2">
+                                <i class="fa-regular fa-calendar text-indigo-600"></i>
+                                ${monthName} ${year}
+                            </div>
+                            <i class="fa-solid fa-chevron-down text-gray-400 transition-transform group-open:rotate-180"></i>
+                        </summary>
+                        <div class="p-0">
+                            <table class="w-full text-sm text-left">
+                                <tbody class="divide-y divide-gray-100" id="${groupId}-body">
+                                    <!-- Baris jadwal dimasukkan di sini -->
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+
+                    // Logika Auto-Expand saat drag di atas summary bulan yang tertutup
+                    const summary = group.querySelector('summary');
+                    summary.addEventListener('dragover', (e) => {
+                        e.preventDefault();
+                        if (!group.open) {
+                            if (!monthHoverTimer) {
+                                monthHoverTimer = setTimeout(() => {
+                                    group.open = true;
+                                    showToast(`Membuka bulan ${monthName}`);
+                                }, 500); 
+                            }
+                        }
+                    });
+
+                    summary.addEventListener('dragleave', () => {
+                        if (monthHoverTimer) {
+                            clearTimeout(monthHoverTimer);
+                            monthHoverTimer = null;
+                        }
+                    });
+
+                    scheduleContainer.appendChild(group);
+                }
+                
+                return document.getElementById(`${groupId}-body`);
+            };
+
+            const createScheduleRow = (dateObj) => {
+                const year = dateObj.getFullYear();
+                const monthIndex = dateObj.getMonth();
+                const dateStrID = formatDateID(dateObj);
+                const rawDateStr = dateObj.toISOString().split('T')[0];
+                
+                const tbody = getOrCreateMonthGroup(year, monthIndex);
+                
+                if (tbody.querySelector(`tr[data-date="${rawDateStr}"]`)) return;
+
+                const tr = document.createElement('tr');
+                tr.dataset.date = rawDateStr;
+                tr.className = 'hover:bg-blue-50/30 transition-colors group';
+                
+                tr.innerHTML = `
+                    <td class="p-4 w-1/3 align-middle whitespace-nowrap border-r border-gray-100">
+                        <div class="font-medium text-gray-800">${dateStrID.split(',')[0]}</div>
+                        <div class="text-xs text-gray-500">${dateStrID.split(',')[1]}</div>
+                    </td>
+                    <td class="p-3 w-2/3 align-middle dropzone relative rounded-r-lg">
+                        <div class="absolute inset-2 border-2 border-dashed border-transparent rounded-lg pointer-events-none transition-colors dropzone-border"></div>
+                        <div class="task-container flex flex-wrap gap-2 min-h-[40px] items-center relative z-10 w-full h-full">
+                            <span class="text-gray-400 text-xs italic empty-placeholder"><i class="fa-solid fa-arrow-turn-down fa-rotate-90 mr-1"></i>Drop petugas di sini</span>
+                        </div>
+                    </td>
+                `;
+
+                const dropzone = tr.querySelector('.dropzone');
+                const taskContainer = tr.querySelector('.task-container');
+                const emptyPlaceholder = tr.querySelector('.empty-placeholder');
+                const borderEffect = tr.querySelector('.dropzone-border');
+
+                dropzone.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = e.dataTransfer.types.includes('application/json') ? 'copy' : 'move';
+                    borderEffect.classList.replace('border-transparent', 'border-indigo-300');
+                    dropzone.classList.add('bg-indigo-50/50');
+                });
+
+                dropzone.addEventListener('dragleave', () => {
+                    borderEffect.classList.replace('border-transparent', 'border-indigo-300');
+                    dropzone.classList.remove('bg-indigo-50/50');
+                });
+
+                dropzone.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    borderEffect.classList.replace('border-transparent', 'border-indigo-300');
+                    dropzone.classList.remove('bg-indigo-50/50');
+
+                    if (monthHoverTimer) {
+                        clearTimeout(monthHoverTimer);
+                        monthHoverTimer = null;
+                    }
+
+                    try {
+                        const data = JSON.parse(e.dataTransfer.getData('application/json'));
+                        const sourceType = data.source || 'sidebar';
+                        
+                        if (sourceType === 'sidebar') {
+                            if (taskContainer.querySelector(`.assigned-task[data-pembina-id="${data.id}"]`)) {
+                                showToast('Pembina sudah ditugaskan pada tanggal ini!');
+                                return;
+                            }
+
+                            if (emptyPlaceholder) emptyPlaceholder.style.display = 'none';
+
+                            const taskEl = createTaskElement(data.id, data.name);
+                            taskContainer.appendChild(taskEl);
+                            updateBadgeCount(data.id);
+                            showToast('Tugas ditambahkan');
+
+                        } else if (sourceType === 'schedule') {
+                            const draggedTaskEl = document.getElementById(data.taskId);
+                            if (!draggedTaskEl) return;
+                            
+                            const sourceContainer = draggedTaskEl.closest('.task-container');
+                            const dropTargetTask = e.target.closest('.assigned-task');
+
+                            if (dropTargetTask && dropTargetTask !== draggedTaskEl) {
+                                // TUKAR POSISI (SWAP)
+                                const targetPembinaId = dropTargetTask.dataset.pembinaId;
+                                const draggedPembinaId = draggedTaskEl.dataset.pembinaId;
+                                
+                                if (sourceContainer !== taskContainer) {
+                                    if (Array.from(sourceContainer.children).some(el => el.dataset.pembinaId === targetPembinaId && el !== draggedTaskEl)) {
+                                        showToast('Gagal tukar: Pembina sudah ada di tanggal asal'); return;
+                                    }
+                                    if (Array.from(taskContainer.children).some(el => el.dataset.pembinaId === draggedPembinaId && el !== dropTargetTask)) {
+                                        showToast('Gagal tukar: Pembina sudah ada di tanggal tujuan'); return;
+                                    }
+                                }
+
+                                const p1 = document.createElement('div');
+                                const p2 = document.createElement('div');
+                                draggedTaskEl.replaceWith(p1);
+                                dropTargetTask.replaceWith(p2);
+                                p1.replaceWith(dropTargetTask);
+                                p2.replaceWith(draggedTaskEl);
+                                
+                                showToast('Posisi ditukar');
+
+                            } else {
+                                // PINDAH POSISI (MOVE)
+                                if (sourceContainer === taskContainer) return; 
+
+                                if (taskContainer.querySelector(`.assigned-task[data-pembina-id="${data.id}"]`)) {
+                                    showToast('Pembina sudah ditugaskan pada tanggal ini!'); return;
+                                }
+
+                                if (emptyPlaceholder) emptyPlaceholder.style.display = 'none';
+                                taskContainer.appendChild(draggedTaskEl);
+                                showToast('Tugas dipindahkan');
+                            }
+
+                            if (sourceContainer.querySelectorAll('.assigned-task').length === 0) {
+                                const ph = sourceContainer.querySelector('.empty-placeholder');
+                                if (ph) ph.style.display = 'block';
+                            }
+                            if (taskContainer.querySelectorAll('.assigned-task').length > 0) {
+                                if (emptyPlaceholder) emptyPlaceholder.style.display = 'none';
+                            }
+                        }
+                    } catch (err) {
+                        console.error('Data drop tidak valid', err);
+                    }
+                });
+
+                tbody.appendChild(tr);
+            };
+
+            const generateMondays = (numSemesters) => {
+                const today = new Date();
+                const currentMonth = today.getMonth(); 
+                const currentYear = today.getFullYear();
+                
+                const isGanjil = currentMonth >= 6; 
+                
+                let startMonth, startYear, endMonth, endYear;
+                
+                if (isGanjil) {
+                    startMonth = 6; 
+                    startYear = currentYear;
+                    if (numSemesters === 1) {
+                        endMonth = 11; 
+                        endYear = currentYear;
+                    } else {
+                        endMonth = 5; 
+                        endYear = currentYear + 1;
+                    }
+                } else {
+                    startMonth = 0; 
+                    startYear = currentYear;
+                    if (numSemesters === 1) {
+                        endMonth = 5; 
+                        endYear = currentYear;
+                    } else {
+                        endMonth = 11; 
+                        endYear = currentYear;
+                    }
+                }
+
+                const startDate = new Date(startYear, startMonth, 1);
+                const endDate = new Date(endYear, endMonth + 1, 0); 
+                
+                const existingTasks = [];
+                document.querySelectorAll('.assigned-task').forEach(el => {
+                    const row = el.closest('tr');
+                    if (row) existingTasks.push(row.dataset.date);
+                });
+
+                const detailsGroups = document.querySelectorAll('details[id^="month-group-"]');
+                detailsGroups.forEach(group => {
+                    const rows = group.querySelectorAll('tr');
+                    rows.forEach(row => {
+                        if (!existingTasks.includes(row.dataset.date)) {
+                            row.remove(); 
+                        }
+                    });
+                    if (group.querySelector('tbody').children.length === 0) {
+                        group.remove();
+                    }
+                });
+
+                let runner = new Date(startDate);
+                while(runner.getDay() !== 1) {
+                    runner.setDate(runner.getDate() + 1);
+                }
+
+                while (runner <= endDate) {
+                    createScheduleRow(new Date(runner));
+                    runner.setDate(runner.getDate() + 7); 
+                }
+
+                const groups = Array.from(scheduleContainer.children);
+                groups.sort((a, b) => {
+                    const partsA = a.id.split('-'); 
+                    const partsB = b.id.split('-');
+                    if (partsA.length >= 4 && partsB.length >= 4) {
+                        const dateA = new Date(parseInt(partsA[2]), parseInt(partsA[3]), 1);
+                        const dateB = new Date(parseInt(partsB[2]), parseInt(partsB[3]), 1);
+                        return dateA - dateB;
+                    }
+                    return 0;
+                });
+                
+                groups.forEach(group => {
+                    scheduleContainer.appendChild(group);
+                    
+                    const tbody = group.querySelector('tbody');
+                    if (tbody) {
+                        const rows = Array.from(tbody.querySelectorAll('tr'));
+                        rows.sort((a, b) => new Date(a.dataset.date) - new Date(b.dataset.date));
+                        rows.forEach(row => tbody.appendChild(row));
+                    }
+                });
+            };
+
+            periodeSelect.addEventListener('change', (e) => {
+                generateMondays(parseInt(e.target.value));
+                
+                const isGanjil = new Date().getMonth() >= 6;
+                const taStr = isGanjil ? `${new Date().getFullYear()}/${new Date().getFullYear()+1}` : `${new Date().getFullYear()-1}/${new Date().getFullYear()}`;
+                
+                if(e.target.value === "2") {
+                    inputCustomTitle.placeholder = "Default: Jadwal Pembina Upacara (Satu Tahun Ajaran)";
+                } else {
+                    inputCustomTitle.placeholder = `Default: Jadwal Pembina Upacara (Semester ${isGanjil ? 'Ganjil' : 'Genap'})`;
+                }
+                inputCustomSubtitle.placeholder = `Default: Tahun Ajaran ${taStr}`;
+                
+                showToast(`Jadwal diubah menjadi ${e.target.value} Semester`);
+            });
+
+            const applyPrintPaperSize = () => {
+                const size = inputPaperSize.value || 'A4';
+                let styleEl = document.getElementById('dynamicPageSizeStyle');
+                if (!styleEl) {
+                    styleEl = document.createElement('style');
+                    styleEl.id = 'dynamicPageSizeStyle';
+                    document.head.appendChild(styleEl);
+                }
+                
+                // Atur konfigurasi @page berdasarkan tipe kertas pilihan
+                if (size === 'A4') {
+                    styleEl.innerHTML = `
+                        @media print {
+                            @page { 
+                                size: A4 portrait; 
+                                margin: 1cm 1.5cm 2cm 1.5cm; 
+                            }
+                            #printView {
+                                max-width: 210mm;
+                                font-size: 11pt;
+                            }
+                        }
+                    `;
+                } else if (size === 'F4') {
+                    styleEl.innerHTML = `
+                        @media print {
+                            @page { 
+                                size: 215mm 330mm portrait; 
+                                margin: 1cm 1.5cm 2cm 1.5cm; 
+                            }
+                            #printView {
+                                max-width: 215mm;
+                                font-size: 12pt;
+                            }
+                        }
+                    `;
+                }
+            };
+
+            const setupPrintHeadersAndTitles = (isUrutMode = false) => {
+                const isGanjil = new Date().getMonth() >= 6;
+                const taStr = isGanjil ? `${new Date().getFullYear()}/${new Date().getFullYear()+1}` : `${new Date().getFullYear()-1}/${new Date().getFullYear()}`;
+                
+                let defaultTitle = "";
+                if (isUrutMode) {
+                    defaultTitle = "Urutan Pembina Upacara";
+                } else {
+                    if(periodeSelect.value === "2") {
+                        defaultTitle = "Jadwal Pembina Upacara (Satu Tahun Ajaran)";
+                    } else {
+                        defaultTitle = `Jadwal Pembina Upacara (Semester ${isGanjil ? 'Ganjil' : 'Genap'})`;
+                    }
+                }
+                
+                printTitle.textContent = inputCustomTitle.value.trim() || defaultTitle;
+                printSubtitle.textContent = inputCustomSubtitle.value.trim() || `Tahun Ajaran ${taStr}`;
+
+                printKepsekName.textContent = inputKepsekName.value.trim() || "_________________________";
+                printKepsekNip.textContent = inputKepsekNip.value.trim() || "NIP. ........................";
+
+                if (isUrutMode) {
+                    printTableHeaderRow.innerHTML = `
+                        <th style="width: 15%; text-align: center; padding: 8px 12px;" class="border-b border-black">No Urut</th>
+                        <th style="width: 85%; padding: 8px 12px;" class="border-b border-black">Nama Petugas Pembina</th>
+                    `;
+                } else {
+                     printTableHeaderRow.innerHTML = `
+                        <th class="w-1/3 py-2 font-bold border-b border-black">Tanggal (Senin)</th>
+                        <th class="w-2/3 py-2 font-bold border-b border-black">Petugas Pembina</th>
+                    `;
+                }
+
+                // Terapkan ukuran kertas kustom sesaat sebelum pencetakan dipicu
+                applyPrintPaperSize();
+            };
+
+            printNoUrutBtn.addEventListener('click', () => {
+                const printTableBody = document.getElementById('printTableBody');
+                printTableBody.innerHTML = ''; 
+                setupPrintHeadersAndTitles(true);
+
+                const pembinas = Array.from(document.querySelectorAll('#pembinaList li'));
+                
+                if(pembinas.length === 0) {
+                    showToast("Tidak ada daftar pembina untuk dicetak!");
+                    return;
+                }
+
+                const isBoldActive = inputBoldPrint.checked;
+                const textWeightClass = isBoldActive ? 'font-weight: bold; font-size: 1.05em;' : '';
+
+                pembinas.forEach((pembina, index) => {
+                    const name = pembina.querySelector('span.font-medium').textContent;
+                    const newTr = document.createElement('tr');
+                    newTr.className = "border-b border-gray-300";
+                    newTr.innerHTML = `
+                        <td style="text-align: center; padding: 10px 12px; ${textWeightClass}">${index + 1}</td>
+                        <td style="padding: 10px 12px; ${textWeightClass}">${name}</td>
+                    `;
+                    printTableBody.appendChild(newTr);
+                });
+
+                window.print();
+            });
+
+            printBtn.addEventListener('click', () => {
+                const printTableBody = document.getElementById('printTableBody');
+                printTableBody.innerHTML = ''; 
+                setupPrintHeadersAndTitles(false);
+
+                // Mengambil HANYA accordion bulan (<details>) yang sedang TERBUKA (open)
+                const openMonths = document.querySelectorAll('#scheduleContainer details[open]');
+                
+                if (openMonths.length === 0) {
+                    showToast("Buka minimal satu bulan pada jadwal upacara untuk dicetak!");
+                    return;
+                }
+
+                const isBoldActive = inputBoldPrint.checked;
+                const textWeightClass = isBoldActive ? 'font-weight: bold; font-size: 1.05em;' : '';
+                let totalPrintedRows = 0;
+
+                openMonths.forEach(monthDetail => {
+                    const monthRows = monthDetail.querySelectorAll('tr[data-date]');
+                    monthRows.forEach(row => {
+                        const firstTd = row.querySelector('td:first-child');
+                        if (!firstTd) return;
+
+                        // Pastikan teks tanggal bersih dan tidak kosong
+                        const dateTextObj = firstTd.innerText.replace(/\n/g, ' ').trim();
+                        if (!dateTextObj) return;
+
+                        const tasks = row.querySelectorAll('.assigned-task');
+                        let petugasStr = "-";
+                        if (tasks.length > 0) {
+                            const names = Array.from(tasks).map(t => t.dataset.pembinaName);
+                            petugasStr = names.join(', ');
+                        }
+
+                        const newTr = document.createElement('tr');
+                        newTr.className = "border-b border-gray-300";
+                        newTr.innerHTML = `
+                            <td style="padding: 10px 12px; ${textWeightClass}">${dateTextObj}</td>
+                            <td style="padding: 10px 12px; ${textWeightClass}">${petugasStr}</td>
+                        `;
+                        printTableBody.appendChild(newTr);
+                        totalPrintedRows++;
+                    });
+                });
+
+                if (totalPrintedRows === 0) {
+                    showToast("Tidak ada jadwal valid di bulan-bulan yang sedang dibuka!");
+                    return;
+                }
+
+                window.print();
+            });
+
+            exportBtn.addEventListener('click', () => {
+                const data = {
+                    version: 1,
+                    printSettings: {
+                        customTitle: inputCustomTitle.value,
+                        customSubtitle: inputCustomSubtitle.value,
+                        kepsekName: inputKepsekName.value,
+                        kepsekNip: inputKepsekNip.value,
+                        paperSize: inputPaperSize.value,
+                        boldPrint: inputBoldPrint.checked
+                    },
+                    periode: periodeSelect.value,
+                    pembinas: [],
+                    schedule: {}
+                };
+
+                document.querySelectorAll('#pembinaList li').forEach(li => {
+                    const name = li.querySelector('span.font-medium').textContent;
+                    data.pembinas.push({ id: li.id, name: name });
+                });
+
+                document.querySelectorAll('#scheduleContainer tr[data-date]').forEach(tr => {
+                    const date = tr.dataset.date;
+                    const tasks = tr.querySelectorAll('.assigned-task');
+                    if (tasks.length > 0) {
+                        data.schedule[date] = [];
+                        tasks.forEach(task => {
+                            data.schedule[date].push({
+                                id: task.dataset.pembinaId,
+                                name: task.dataset.pembinaName
+                            });
+                        });
+                    }
+                });
+
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `Backup_Jadwal_Pembina_${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                showToast('Data berhasil diekspor!');
+            });
+
+            importBtn.addEventListener('click', () => importFile.click());
+
+            importFile.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const data = JSON.parse(event.target.result);
+                        
+                        if (data.printSettings) {
+                            inputCustomTitle.value = data.printSettings.customTitle || '';
+                            inputCustomSubtitle.value = data.printSettings.customSubtitle || '';
+                            inputKepsekName.value = data.printSettings.kepsekName || '';
+                            inputKepsekNip.value = data.printSettings.kepsekNip || '';
+                            inputPaperSize.value = data.printSettings.paperSize || 'A4';
+                            inputBoldPrint.checked = !!data.printSettings.boldPrint;
+                        }
+
+                        pembinaList.innerHTML = '';
+                        scheduleContainer.querySelectorAll('.assigned-task').forEach(t => t.remove());
+                        scheduleContainer.querySelectorAll('.empty-placeholder').forEach(p => p.style.display = 'block');
+                        pembinaIdCounter = 0;
+
+                        if (data.pembinas) {
+                            data.pembinas.forEach(p => createPembinaItem(p.name, p.id));
+                        }
+
+                        if (data.periode) {
+                            periodeSelect.value = data.periode;
+                        }
+                        generateMondays(parseInt(periodeSelect.value));
+
+                        if (data.schedule) {
+                            for (const [date, tasks] of Object.entries(data.schedule)) {
+                                const tr = document.querySelector(`tr[data-date="${date}"]`);
+                                if (tr) {
+                                    const taskContainer = tr.querySelector('.task-container');
+                                    const emptyPlaceholder = tr.querySelector('.empty-placeholder');
+                                    
+                                    tasks.forEach(taskData => {
+                                        if (emptyPlaceholder) emptyPlaceholder.style.display = 'none';
+
+                                        const taskEl = createTaskElement(taskData.id, taskData.name);
+                                        taskContainer.appendChild(taskEl);
+                                    });
+                                }
+                            }
+                        }
+
+                        if (data.pembinas) {
+                            data.pembinas.forEach(p => updateBadgeCount(p.id));
+                        }
+
+                        showToast('Data berhasil diimpor!');
+                    } catch (err) {
+                        showToast('Gagal membaca file. Pastikan file JSON valid.');
+                        console.error(err);
+                    }
+                    importFile.value = ''; 
+                };
+                reader.readAsText(file);
+            });
+
+            // Memuat Data Bawaan (Default List)
+            const dummyNames = [
+                "Asmawati, S.Pd",
+                "Citra Mayasari Tanjung, S.Pd",
+                "Dewi Indah Pratiwi, S.Pd",
+                "Dian Eka Sari, S.Pd.I",
+                "Fakhruddin Nst, S.Pd.I",
+                "Elverida Sipayung, S.Pd",
+                "Endang Rahmat Purnama, S.Pd",
+                "Fitriyani, S.Pd",
+                "Hayati, S.Pd",
+                "Marista Manalu, S.Pd.K",
+                "Misnar Joko Irawan, S.Pd",
+                "Morista Sinaga, S.Pd",
+                "Raudhah Siregar, S.Pd",
+                "Ronni Sihombing, S.Pd",
+                "Sella Oktaviana, S.Pd",
+                "Dra. Suharyanti"
+            ];
+            dummyNames.forEach(name => createPembinaItem(name));
+
+            generateMondays(1);
+        });
+    </script>
+</body>
+</html>
